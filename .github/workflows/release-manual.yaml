@@ -1,4 +1,4 @@
-name: Release on Merge
+name: Release Manual
 
 on:
   workflow_dispatch:
@@ -11,40 +11,28 @@ on:
         description: 'Container to release (leave empty for all)'
         required: false
         default: ''
-
+        
 jobs:
-  release:
-    runs-on: ubuntu-latest
-    env:
-      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  simple-checks:
+    uses: flov91/containers/.github/workflows/simple-checks.yaml@main
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  get-changed-images:
+    needs: ["simple-checks"]
+    uses: flov91/containers/.github/workflows/get-changed-images.yaml@main
 
-      - name: Log in to GitHub Container Registry
-        run: echo "${GHCR_TOKEN}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+  build-images:
+    needs: ["simple-checks", "get-changed-images"]
+    if: ${{ needs.get-changed-images.outputs.addedOrModified == 'true' }}
+    uses: flov91/containers/.github/workflows/build-images.yaml@main
+    secrets: inherit
+    with:
+      appsToBuild: "${{ needs.get-changed-images.outputs.addedOrModifiedImages }}"
+      pushImages: true
+      sendNotifications: true
 
-      - name: Log in to DockerHub
-        run: echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-
-      - name: Build and Push Containers
-        run: |
-          echo "Starting release for tag: ${{ github.event.inputs.release_tag }}"
-          if [[ -z "${{ github.event.inputs.container_name }}" ]]; then
-            # Build and push all containers (example)
-            for dir in $(ls -d */ | grep -v '^\.'); do
-              echo "Building and pushing $dir"
-              # Insert your build and push logic here, e.g.:
-              # docker buildx build --push --tag ghcr.io/flov91/$dir:${{ github.event.inputs.release_tag }} $dir
-            done
-          else
-            echo "Building and pushing ${{ github.event.inputs.container_name }}"
-            # Insert your build and push logic for a single container
-            # docker buildx build --push --tag ghcr.io/flov91/${{ github.event.inputs.container_name }}:${{ github.event.inputs.release_tag }} ${{ github.event.inputs.container_name }}
-          fi
-        shell: bash
+  render-readme:
+    name: Render Readme
+    needs: build-images
+    if: ${{ always() && needs.build-images.result != 'failure' }}
+    uses: ./.github/workflows/render-readme.yaml
+    secrets: inherit
