@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 #shellcheck disable=SC1091
 source "/app/venv/bin/activate"
@@ -16,5 +16,5 @@ chown -R nobody:nogroup /config
 exec \
     /app/venv/bin/pyload \
         --userdir /config \
-        --storagedir /config/downloads \
+        --storagedir /downloads \
         "$@"

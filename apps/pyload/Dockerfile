@@ -19,8 +19,7 @@ ENV CARGO_HOME="/cargo" \
 WORKDIR /app
 
 # Install build dependencies
-RUN \
-    apk add --no-cache \
+RUN apk add --no-cache \
         bash \
         build-base \
         cargo \
@@ -36,10 +35,9 @@ RUN \
         python3 \
         python3-dev \
         py3-pip \
-        zlib-dev
-
-# Install Rust toolchain
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain 1.75.0
+        zlib-dev && \
+    # Install Rust toolchain
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain 1.75.0
 
 FROM prereq AS builder
 
@@ -55,14 +53,14 @@ RUN python3 -m venv /app/venv && \
         dnspython \
         aiodns \
         maturin && \
-        # maturin==1.4.0 && \
-        git clone https://github.com/poezio/slixmpp.git /app/slixmpp && \
-        cd /app/slixmpp && \
-        python3 setup.py install && \
+    git clone https://github.com/poezio/slixmpp.git /app/slixmpp && \
+    cd /app/slixmpp && \
+    python3 setup.py install && \
     if [ -z ${PYLOAD_VERSION+x} ]; then \
-        PYLOAD_VERSION=$(curl -sL  https://pypi.python.org/pypi/pyload-ng/json |jq -r '. | .info.version'); \
+        PYLOAD_VERSION=$(curl -sL https://pypi.python.org/pypi/pyload-ng/json | jq -r '. | .info.version'); \
     fi && \
-    pip install -U --no-cache-dir "pyload-ng[all]==${PYLOAD_VERSION}"
+    pip install -U --no-cache-dir "pyload-ng[all]==${PYLOAD_VERSION}" && \
+    chown -R 568:568 /app/venv
 
 # Final stage
 FROM docker.io/library/alpine:3.19
@@ -84,23 +82,16 @@ ENV UMASK="0002" \
 WORKDIR /app
 
 # Install runtime dependencies
-RUN \
-    apk add --no-cache \
-        bash \
-        ca-certificates \
-        catatonit \
-        coreutils \
-        curl \
-        ffmpeg \
-        jo \
-        jq \
-        libjpeg-turbo \
-        nano \
-        p7zip \
-        python3 \
-        sqlite \
-        tesseract-ocr \
-        tzdata
+RUN   apk add --no-cache \
+    ffmpeg \
+    libjpeg-turbo \
+    7zip \
+    python3 \
+    sqlite \
+    catatonit \
+    curl \
+    tesseract-ocr && \
+    rm -rf /tmp/*
 
 # Copy built artifacts from builder
 COPY --from=builder /app/venv /app/venv
@@ -115,7 +106,7 @@ RUN chmod +x /entrypoint.sh && \
     mkdir -p /config && \
     addgroup -g 568 pyload && \
     adduser -h /config -s /sbin/nologin -G pyload -D -u 568 pyload && \
-    chown -R pyload:pyload /config /app/venv
+    chown -R pyload:pyload /config /app
 
 USER pyload
 WORKDIR /config
