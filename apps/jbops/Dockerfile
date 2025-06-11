@@ -2,7 +2,6 @@ FROM docker.io/library/python:3.12-alpine
 
 ARG TARGETPLATFORM
 ARG VERSION
-ARG CHANNEL
 
 ENV \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -42,18 +41,14 @@ RUN apk add --no-cache \
         musl-dev \
         git \
     && \
-    git clone https://github.com/blacktwin/JBOPS.git . \
-    && if [ -n "${VERSION}" ]; then \
-        NUMBER_COMMITS_TO_REVERT=$(( $(git rev-list --count --first-parent HEAD) - $(echo "${VERSION}" | cut -d "." -f3) )); \
-        git checkout "master~${NUMBER_COMMITS_TO_REVERT}"; \
-    fi \
+    git clone --single-branch --branch "${VERSION}" https://github.com/blacktwin/JBOPS.git . \
     && \
     pip install --upgrade --requirement requirements.txt \
     && chown -R root:root /app && chmod -R 755 /app \
     && apk del --purge .build-deps \
     && rm -rf /root/.cache /root/.cargo /tmp/*
 
-COPY ./apps/jbops/entrypoint.sh /entrypoint.sh
+COPY ./entrypoint.sh /entrypoint.sh
 
 USER nobody:nogroup
 
