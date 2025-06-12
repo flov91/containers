@@ -1,10 +1,4 @@
 ---
-app: pyload
-semver: true
-channels:
-  - name: stable
-    platforms: ["linux/amd64", "linux/arm64"]
-    stable: true
-    tests:
-      enabled: true
-      type: web
+# renovate: datasource=custom.pyload depName=pyload versioning=loose
+version: 0.5.0
+name: pyload
